@@ -1,0 +1,28 @@
+# Gradle / Android build output
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+
+# Local configuration (SDK path, etc.) — never commit
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Kotlin
+.kotlin/
+
+# Native build
+.cxx/
+
+# Signing material — never commit
+*.jks
+*.keystore
+keystore.properties
+
+# Logs and dumps
+*.log

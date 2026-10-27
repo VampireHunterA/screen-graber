@@ -1,11 +1,11 @@
 # IMPLEMENTATION_PLAN — Screen Graber v1
 
-**Статус:** план согласован 2026-10-27; реализация не начата.
+**Статус:** план согласован 2026-10-27; минимальный каркас реализован и собран локально (этап 4). Функции захвата, выделения и OCR не начаты.
 **Целевое устройство:** Xiaomi Mi 9T, Android 11 / MIUI 12.
 **Связанный документ:** `PROJECT_STATUS.md` (фактическое состояние и Git-статус).
 
-> Документ описывает, **что и как будет сделано**. Он не является отчётом о выполнении.
-> Сборка, тесты и проверка на устройстве ещё не проводились.
+> Документ описывает, **что и как будет сделано**, и отмечает фактически выполненные шаги.
+> Проверка на физическом устройстве ещё не проводилась.
 
 ---
 
@@ -56,9 +56,11 @@ finish() → возврат в исходное приложение (оно б�
 | Языки | один проход `rus+eng`, смешанные строки | согласовано |
 | Сеть | офлайн; `INTERNET` не добавляется; аналитики нет | согласовано |
 | Интерфейс | `MainActivity` (инструкция/диагностика) + выделение + результат | согласовано |
-| `compileSdk` / `minSdk` | 35 / 29 (предложение) | требует фиксации на этапе 3 |
-| Пакет / метка плитки | `com.screengraber.text` / «Захват текста» (предложение) | требует фиксации |
-| ABI | `arm64-v8a` | предложение |
+| `compileSdk` / `minSdk` | 35 / 29 | зафиксировано и использовано в сборке |
+| `buildToolsVersion` | 35.0.0 | зафиксировано |
+| Пакет / метка | `com.screengraber.text` / «Захват текста» | зафиксировано |
+| ABI | `arm64-v8a` | зафиксировано (`abiFilters`) |
+| AGP / Gradle / Kotlin / JDK | 8.7.2 / 8.9 / 2.1.10 / 17 | зафиксировано, сборка успешна |
 
 `targetSdk = 30` выбран осознанно: на Android 11 это нативное поведение без лишних ветвлений.
 Код всё равно строится по схеме «согласие → foreground service → `getMediaProjection()`», поэтому
@@ -143,6 +145,16 @@ VirtualDisplay, foreground service и уведомление.
         └── test/java/com/screengraber/text/SelectionGeometryTest.kt
 ```
 
+**Состояние на этапе 4:**
+
+- **Создано и проверено сборкой:** Gradle-конфигурация (`settings.gradle.kts`, `build.gradle.kts`,
+  `gradle.properties`), wrapper 8.9, `.gitignore`, `AndroidManifest.xml`, `MainActivity.kt`,
+  `activity_main.xml`, `strings.xml`, `themes.xml`, `ic_launcher.xml`, `proguard-rules.pro`.
+- **Ещё не создано:** `App.kt`, пакеты `tile/`, `capture/`, `ui/`, `ocr/`, `util/`, `assets/tessdata/*`,
+  `NOTICE.txt`, `SelectionGeometryTest.kt`. Они появятся на этапах 3б–8.
+- **Зависимостей нет:** каркас использует только Kotlin stdlib; Tesseract4Android и модели будут
+  добавлены на этапе 6.
+
 ### 4.1 Манифест
 
 - `CaptureTileService`: `exported="true"`, `permission="android.permission.BIND_QUICK_SETTINGS_TILE"`,
@@ -170,10 +182,12 @@ VirtualDisplay, foreground service и уведомление.
 ## 5. Этапы реализации
 
 Каждый шаг заканчивается проверкой; без неё шаг не считается выполненным.
+Текущий статус: **шаг 1 выполнен**, шаги 2–10 не начаты.
 
-**Шаг 1. Каркас проекта.**
-Gradle-файлы, wrapper, `app/build.gradle.kts`, пустые `MainActivity` и тема.
-Проверка: `./gradlew :app:assembleDebug` завершается успешно, APK создан.
+**Шаг 1. Каркас проекта. — ВЫПОЛНЕН (этап 4).**
+Gradle-файлы, wrapper, `app/build.gradle.kts`, `MainActivity` и тема.
+Проверка: `./gradlew :app:assembleDebug` — **BUILD SUCCESSFUL** (33 задачи, 24 с, APK 2,3 МБ).
+Доказательство: `docs/build-logs/assembleDebug-2026-10-27.txt`.
 
 **Шаг 2. Манифест и плитка.**
 `CaptureTileService` с иконкой и меткой, обработка `onStartListening`/`onClick`,
@@ -341,34 +355,48 @@ JVM-тесты геометрии, `assembleDebug`/`assembleRelease`, прого
 
 | Параметр | Оценка | Комментарий |
 |---|---|---|
-| Размер APK | ~35 МБ (с `tessdata_best`), ~13 МБ (с `fast`) | зависит от ABI-фильтров, сжатия и итогового кода |
-| Время OCR | 2–6 с на область при `best`-моделях, быстрее при `fast` | зависит от площади, разрешения и SoC |
-| Память | ~100–250 МБ в пике OCR + ~10 МБ на полноэкранный Bitmap | не измерялось |
+| Размер APK с OCR | ~35 МБ (с `tessdata_best`), ~13 МБ (с `fast`) | **оценка**; измерен только каркас без OCR — 2,3 МБ |
+| Время OCR | 2–6 с на область при `best`-моделях, быстрее при `fast` | **оценка**, не измерялось |
+| Память | ~100–250 МБ в пике OCR + ~10 МБ на полноэкранный Bitmap | **оценка**, не измерялось |
 | Размер AAR Tesseract4Android | ~12,8 МБ (все ABI) | известно из артефакта, но в APK попадут только arm64-библиотеки |
 | Размер моделей | eng 14,7 МБ + rus 14,6 МБ = 29,3 МБ | известно из репозитория tessdata_best |
 
-Любые реальные цифры появляются только после сборки и запуска на устройстве и заносятся
-в `PROJECT_STATUS.md` с указанием источника.
+Измерено фактически: debug APK каркаса — **2,3 МБ** (без OCR-библиотеки и моделей).
+Любые другие реальные цифры появляются только после соответствующих сборок и запусков на устройстве
+и заносятся в `PROJECT_STATUS.md` с указанием источника.
 
 ## 11. Сборка и проверка
 
-**Ограничение среды:** в текущем окружении нет JDK, Android SDK и Gradle, поэтому сборка здесь
-невозможна без установки инструментов (это отдельное разрешение, на этапе 2 запрещено).
-Реалистичные варианты: собрать в Android Studio у пользователя либо установить toolchain
-(JDK 17 + `cmdline-tools` + `platforms;android-35` + `build-tools;35.0.0`) на этапе реализации.
+**Фактический результат (2026-10-27):** локальная сборка выполнена в среде Cline после установки
+toolchain вне репозитория — JDK 17.0.21, Gradle 8.9, Android platform 35, build-tools 35.0.0.
+`./gradlew :app:assembleDebug` завершился **BUILD SUCCESSFUL** (33 задачи, 24 с), получен
+`app/build/outputs/apk/debug/app-debug.apk` размером 2,3 МБ. Полный лог —
+`docs/build-logs/assembleDebug-2026-10-27.txt`.
 
-Команды (после появления toolchain):
+GitHub Actions **не настраивался**: локальная сборка оказалась возможна, а workflow не должен
+подменять реальную проверку. Если позже понадобится сборка в CI, её следует добавить отдельным
+этапом и не считать доказательством до фактического запуска.
+
+Команды:
 
 ```bash
-./gradlew :app:testDebugUnitTest     # JVM-тесты геометрии
 ./gradlew :app:assembleDebug         # app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:assembleRelease       # подписанный release (keystore пользователя)
+./gradlew :app:testDebugUnitTest     # когда появятся JVM-тесты
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb logcat -c && adb logcat -s ScreenGraber:V AndroidRuntime:E
 ```
 
-Сборка доказательств для приёмки: `logcat`, `dumpsys window windows`, `dumpsys activity services`,
-`aapt dump permissions`, скриншоты/видео, замеры времени.
+Проверки APK, выполненные сейчас:
+
+```bash
+aapt dump badging app-debug.apk       # package, sdkVersion=29, targetSdkVersion=30, label
+aapt dump permissions app-debug.apk   # разрешений нет
+```
+
+В песочнице для HTTPS-запросов Gradle потребовался отдельный truststore с CA прокси
+(`JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStore=...`); на обычной машине это не нужно и в проект
+не входит.
 
 ## 12. Правила ведения проекта
 
