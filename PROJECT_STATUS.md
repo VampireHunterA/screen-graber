@@ -1,9 +1,9 @@
 # PROJECT_STATUS — Screen Graber (захват текста с экрана)
 
-**Дата последнего обновления:** 2026-10-27 18:36 UTC
-**Текущий этап:** Этап 4 — каркас Android и сохранение прогресса (завершён локально; ожидает следующего указания)
+**Дата последнего обновления:** 2026-10-27 18:41 UTC
+**Текущий этап:** Этап 5 — GitHub Actions для сборки APK (workflow подготовлен; **в GitHub не добавлен** из-за отсутствия права `workflows`; запуск не выполнялся)
 **Статус кода:** минимальный каркас создан; debug APK собран локально. Плитка, захват экрана, выделение и OCR **не реализованы**
-**Сборка/тесты:** `assembleDebug` — BUILD SUCCESSFUL (лог: `docs/build-logs/assembleDebug-2026-10-27.txt`). Автотестов нет. На физическом устройстве не проверялось
+**Сборка/тесты:** локально `assembleDebug` — BUILD SUCCESSFUL (лог: `docs/build-logs/assembleDebug-2026-10-27.txt`). CI-сборка ещё не запускалась. Автотестов нет. На физическом устройстве не проверялось
 
 > Этот документ фиксирует **фактическое** состояние. Он не заменяет Git-коммиты и не доказывает,
 > что приложение собирается или работает. Всё, что не подтверждено доказательством (лог, отчёт,
@@ -172,6 +172,7 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 | 1 | Анализ пустого репозитория, технической осуществимости и OCR-кандидатов | Проверен (результаты в документах) |
 | 2 | Документация и согласованный план | Проверен: коммит `bab14d2`, отправлен в `origin/main`, проверен через API |
 | 3а | Gradle-каркас, `MainActivity`, сборка debug APK | Проверен: `BUILD SUCCESSFUL`, лог в `docs/build-logs/` |
+| 3в | GitHub Actions workflow для ручной сборки APK | Подготовлен локально, проверен `actionlint`; в GitHub не добавлен (нет права `workflows`); запуск не выполнялся |
 | 3б | Плитка Quick Settings | Не начат |
 | 4 | MediaProjection: согласие, foreground service, захват кадра | Не начат |
 | 5 | Экран выделения: рамка, 8 маркеров, подтверждение, обрезка | Не начат |
@@ -197,9 +198,12 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 | 2026-10-27 | Установлен локальный toolchain вне репозитория: JDK 17.0.21, Gradle 8.9, Android platform 35, build-tools 35.0.0 | `java -version`, `sdkmanager`, файлы SDK |
 | 2026-10-27 | Создан минимальный каркас: Gradle-конфигурация, wrapper, манифест, `MainActivity`, ресурсы, `.gitignore` | файлы проекта |
 | 2026-10-27 | Выполнена локальная сборка `:app:assembleDebug` — BUILD SUCCESSFUL, APK 2,3 МБ, разрешений нет | `docs/build-logs/assembleDebug-2026-10-27.txt`, `aapt dump badging/permissions` |
+| 2026-10-27 | Подготовлен `.github/workflows/build-debug.yml` (ручной запуск, JDK 17, SDK 35, артефакты APK и лога), проверен `actionlint 1.7.12` | локальный файл, вывод actionlint (exit 0) |
+| 2026-10-27 | Push workflow отклонён GitHub: у GitHub App нет права `workflows`; файл оставлен локально и требует ручного добавления | вывод `git push` (remote rejected) |
+| 2026-10-27 | Повторная локальная сборка перед CI: BUILD SUCCESSFUL, 33 задачи up-to-date | `docs/build-logs/assembleDebug-2026-10-27-rebuild.txt` |
 
-События, которых не было: запуск автотестов, установка APK на Xiaomi Mi 9T, проверка на устройстве,
-настройка и запуск GitHub Actions, реализация плитки, MediaProjection, выделения и OCR.
+События, которых не было: запуск CI-workflow, скачивание APK из CI, запуск автотестов, установка APK
+на Xiaomi Mi 9T и проверка на устройстве, реализация плитки, MediaProjection, выделения и OCR.
 
 ## 11. Локальный toolchain (вне репозитория)
 
@@ -217,3 +221,44 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 собственный CA прокси: он добавлен в отдельный truststore, а не в JDK; на обычной машине это
 не требуется. Полный «сырой» лог сборки сохранён вне репозитория, в репозиторий добавлена
 обезличенная копия (`docs/build-logs/`).
+
+## 12. CI-сборка GitHub Actions
+
+Файл: `.github/workflows/build-debug.yml` (подготовлен локально).
+
+> **Статус: файла нет в GitHub.** Push отклонён:
+> `refusing to allow a GitHub App to create or update workflow .github/workflows/build-debug.yml without 'workflows' permission`.
+> Добавление файла через API/git из этой среды невозможно и обходить ограничение нельзя.
+> Файл нужно создать вручную через веб-интерфейс GitHub (инструкция ниже).
+
+**Как добавить (мобильный интерфейс GitHub):**
+
+1. Открыть репозиторий `VampireHunterA/screen-graber` → ветка `main`.
+2. **Add file → Create new file**.
+3. В поле имени ввести точный путь: `.github/workflows/build-debug.yml`.
+4. Вставить полный YAML из отчёта сессии (или из локального файла `.github/workflows/build-debug.yml`).
+5. **Commit changes** (можно напрямую в `main`).
+6. После коммита открыть вкладку **Actions** — появится workflow **«Build debug APK»**.
+
+**Как запустить вручную:** GitHub → вкладка **Actions** → workflow **«Build debug APK»** →
+кнопка **Run workflow** → ветка `main` → **Run workflow**.
+
+Что делает workflow:
+
+| Параметр | Значение |
+|---|---|
+| Триггер | только `workflow_dispatch` (ручной запуск) |
+| Runner | `ubuntu-latest`, таймаут 30 минут |
+| JDK | Temurin 17 (`actions/setup-java@v4`, кэш Gradle) |
+| Android SDK | `android-actions/setup-android@v3`, пакеты `platforms;android-35`, `build-tools;35.0.0` |
+| Сборка | `./gradlew --no-daemon :app:assembleDebug` (лог пишется в `build-log.txt`) |
+| Artifact с APK | `screen-graber-debug-apk` → `app/build/outputs/apk/debug/app-debug.apk` (только при успехе) |
+| Artifact с логом | `screen-graber-build-log` → `build-log.txt` (загружается всегда: `if: always()`) |
+| Permissions | только `contents: read`; секреты и ключи подписи не используются |
+| Срок хранения | 14 дней |
+
+Где скачать: открыть запуск → раздел **Artifacts** внизу страницы.
+
+Синтаксис YAML проверен `actionlint 1.7.12` (exit 0). **Ни один запуск не выполнялся**, поэтому
+нельзя утверждать, что CI-сборка успешна. Успешная CI-сборка также **не означает**, что APK
+устанавливается и работает на Xiaomi Mi 9T: установка и проверка на устройстве не проводились.
