@@ -1,6 +1,6 @@
 name: Build debug APK
 
-on:
+'on':
 workflow_dispatch:
 
 permissions:
@@ -35,9 +35,7 @@ uses: actions/checkout@v4
 
   - name: Build debug APK
     shell: bash
-    run: |
-      set -o pipefail
-      ./gradlew --no-daemon :app:assembleDebug 2>&1 | tee build-log.txt
+    run: ./gradlew --no-daemon :app:assembleDebug 2>&1 | tee build-log.txt
 
   - name: Upload build log
     if: always()
