@@ -144,7 +144,7 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 | Коммит этапа 6 | `7ae2f88` — `feat: rename to Screen Graber and add quick settings tile` |
 | Коммит этапа 7 | создаётся после локальной проверки; SHA — в отчёте и `git log -1` |
 | Remote | `origin` → `https://github.com/VampireHunterA/screen-graber.git` (не менялся) |
-| CI | workflow `Build debug APK` есть на GitHub; запуск `40569147336` — success на `7716d8e` (0.1.0). Для 0.3.0 запуск не выполнялся |
+| CI | workflow `Build debug APK` есть на GitHub; запуск `40746962643` — success на `a369da6` (0.3.0). Для 0.4.0 запуск не выполнялся |
 | Действия с Git | ветка не менялась и не создавалась, force push не выполнялся, remote и Git-конфигурация не менялись |
 
 Файлы проекта: `.github/workflows/build-debug.yml` (в GitHub), `PROJECT_STATUS.md`,
@@ -227,6 +227,7 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 | 2026-10-28 | `lintDebug`: **FAILED** ровно из-за одной ошибки `ExpiredTargetSdkVersion` (targetSdk 30 < 33, осознанно для Android 11); 2 предупреждения (`startActivityAndCollapse` deprecated для API 34+, arm64-only) | `app/build/reports/lint-results-debug.txt` |
 | 2026-10-28 | Исправлена передача кадра: сессионный `CaptureResultHolder` (поздний кадр отклоняется и освобождается), watchdog 10 с, обработка исключения запуска FGS | код |
 | 2026-10-28 | Повторная сборка 0.3.0 — BUILD SUCCESSFUL; lint перепроверен — та же единственная ошибка политики Google Play | `docs/build-logs/assembleDebug-2026-10-28-capture.txt`, lint-отчёт |
+| 2026-10-28 | Пользователь вручную запустил CI для 0.3.0: run `40746962643` — success на `a369da6`, APK и лог доступны | `gh run view` |
 | 2026-10-28 | Реализован `SelectionView` (0.4.0): вписывание кадра, затемнение только вне выделения, нормализация протяжки во все стороны, компактная кнопка-заглушка «Скопировать» | файлы проекта |
 | 2026-10-28 | Сборка 0.4.0 — BUILD SUCCESSFUL (13 с), без предупреждений компилятора; `aapt`: versionCode 4, только `FOREGROUND_SERVICE` | `docs/build-logs/assembleDebug-2026-10-28-selection.txt` |
 | 2026-10-28 | `lintDebug` после изменений: та же 1 ошибка `ExpiredTargetSdkVersion` и 2 прежних предупреждения; новых замечаний нет | `app/build/reports/lint-results-debug.txt` |
@@ -286,7 +287,7 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 |---|---|---|---|
 | [40569147336](https://github.com/VampireHunterA/screen-graber/actions/runs/40569147336) | `7716d8e` | success, 1m37s | `screen-graber-debug-apk` (748 688 Б), `screen-graber-build-log` (1 019 Б) |
 | — | `7ae2f88` (0.2.0) | **не запускался**: `gh workflow run` вернул HTTP 403 (у GitHub App нет права Actions write) | — |
-| — | 0.3.0 (коммит этапа 7) | **не запускался**: dispatch из Cline недоступен (HTTP 403) | — |
+| [40746962643](https://github.com/VampireHunterA/screen-graber/actions/runs/40746962643) | `a369da6` (0.3.0) | success, 2m5s (ручной запуск пользователя) | APK и лог доступны |
 | — | 0.4.0 (коммит этапа 8) | **не запускался**: dispatch из Cline недоступен (HTTP 403) | — |
 
 Для версии 0.2.0 запуск нужно выполнить вручную: **Actions → Build debug APK → Run workflow → main**.
