@@ -7,4 +7,16 @@
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:colorAccent">#1A73E8</item>
     </style>
+
+    <!-- Прозрачная Activity захвата: до получения кадра окно не должно попадать в снимок. -->
+    <style name="Theme.ScreenGraber.Transparent" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

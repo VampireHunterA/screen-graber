@@ -1,6 +1,6 @@
 # IMPLEMENTATION_PLAN — Screen Graber v1
 
-**Статус:** 2026-10-28: каркас и плитка Quick Settings реализованы (версия 0.2.0), собраны локально и в CI. Плитка на устройстве ещё не проверена. Функции захвата, выделения и OCR не начаты.
+**Статус:** 2026-10-28: версия 0.3.0 — реализован разовый захват кадра через MediaProjection (локальная сборка успешна, на устройстве не проверен). Выделение области и OCR не начаты.
 **Целевое устройство:** Xiaomi Mi 9T, Android 11 / MIUI 12.
 **Связанный документ:** `PROJECT_STATUS.md` (фактическое состояние и Git-статус).
 
@@ -146,18 +146,20 @@ VirtualDisplay, foreground service и уведомление.
         └── test/java/com/screengraber/text/SelectionGeometryTest.kt
 ```
 
-**Состояние на этапе 6:**
+**Состояние на этапе 7:**
 
-- **Создано и проверено сборкой:** Gradle-конфигурация (`settings.gradle.kts`, `build.gradle.kts`,
-  `gradle.properties`), wrapper 8.9, `.gitignore`, `AndroidManifest.xml`, `MainActivity.kt`,
-  `tile/CaptureTileService.kt`, `activity_main.xml`, `strings.xml`, `themes.xml`,
+- **Создано и проверено сборкой:** Gradle-конфигурация, wrapper 8.9, `.gitignore`, `AndroidManifest.xml`,
+  `MainActivity.kt`, `tile/CaptureTileService.kt`, пакет `capture/` (`CaptureActivity`,
+  `ProjectionService`, `ScreenCapture`, `CaptureResultHolder`), `activity_main.xml`,
+  `activity_capture.xml`, `strings.xml`, `themes.xml` (включая `Theme.ScreenGraber.Transparent`),
   `ic_launcher.xml`, `ic_tile.xml`, `proguard-rules.pro`.
-- **Ещё не создано:** `App.kt`, пакеты `capture/`, `ui/`, `ocr/`, `util/`, `assets/tessdata/*`,
-  `NOTICE.txt`, `SelectionGeometryTest.kt`. Они появятся на этапах 4–8.
-- **Зависимостей нет:** проект использует только Kotlin stdlib; Tesseract4Android и модели будут
-  добавлены на этапе 6 (OCR).
-- **Плитка:** `CaptureTileService` объявлен с `BIND_QUICK_SETTINGS_TILE`, `exported=true`,
-  intent-filter `QS_TILE`; нажатие открывает `MainActivity`. Захвата экрана нет.
+- **Ещё не создано:** `ui/SelectionView.kt`, `ocr/*`, `util/TessdataInstaller.kt`, `assets/tessdata/*`,
+  `SelectionGeometryTest.kt`. Они появятся на этапах 5–6 (выделение и OCR).
+- **Зависимостей нет:** только Kotlin stdlib; Tesseract4Android и модели будут добавлены на этапе 6 (OCR).
+- **Плитка:** без изменений в иконке и метке, но `onClick` открывает `CaptureActivity`.
+- **Захват:** `ProjectionService` (FGS типа `mediaProjection`) получает кадр через `ScreenCapture`
+  и передаёт его в Activity через process-local `CaptureResultHolder` с сессионной очисткой.
+
 
 
 ### 4.1 Манифест
@@ -187,7 +189,7 @@ VirtualDisplay, foreground service и уведомление.
 ## 5. Этапы реализации
 
 Каждый шаг заканчивается проверкой; без неё шаг не считается выполненным.
-Текущий статус: **шаги 1–2 выполнены**, шаги 3–10 не начаты.
+Текущий статус: **шаги 1–4 выполнены**, шаги 5–10 не начаты.
 
 **Шаг 1. Каркас проекта. — ВЫПОЛНЕН (этап 4).**
 Gradle-файлы, wrapper, `app/build.gradle.kts`, `MainActivity` и тема.
@@ -201,18 +203,21 @@ Gradle-файлы, wrapper, `app/build.gradle.kts`, `MainActivity` и тема.
 Проверка в APK: сервис с `BIND_QUICK_SETTINGS_TILE`, `exported=true`, intent-filter `QS_TILE`;
 label «Screen Graber». Проверка на телефоне (появление плитки и тап) — за пользователем.
 
-**Шаг 3. MediaProjection и foreground service.**
+**Шаг 3. MediaProjection и foreground service. — ВЫПОЛНЕН (этап 7; на устройстве не проверен).**
 `ProjectionService`, запрос согласия из Activity, обработка `RESULT_CANCELED` и `SecurityException`,
-порядок «согласие → старт FGS → `getMediaProjection()`».
-Проверка: согласие запрашивается при каждом запуске; отказ завершает сценарий без уведомления
-и без сервиса.
+порядок «согласие → `startForegroundService` → `startForeground(type=mediaProjection)` →
+`getMediaProjection()`». `startForeground` вызывается синхронно в `onStartCommand` до обращения
+к проекции, поэтому гонки нет.
+Проверка в APK: сервис с `foregroundServiceType=mediaProjection`, разрешение только
+`FOREGROUND_SERVICE`. Проверка на телефоне — за пользователем.
 
-**Шаг 4. Захват кадра.**
+**Шаг 4. Захват кадра. — ВЫПОЛНЕН частично (этап 7).**
 `ScreenCapture`: `ImageReader` (`RGBA_8888`, `maxImages=2`), `VirtualDisplay` на полном разрешении,
-ожидание кадра с таймаутом ~2 с, конвертация с учётом `rowStride`, освобождение ресурсов в `finally`.
-Задержка ~700–800 мс после `onActivityResult`, чтобы шторка и диалог успели исчезнуть; при пустом
-кадре — до 3 попыток.
-Проверка: получен кадр 1:1 без искажений и без элементов шторки/диалога.
+ожидание кадра событийное (`OnImageAvailableListener` + `CountDownLatch`, таймаут 2,5 с),
+конвертация с учётом `rowStride`, освобождение ресурсов в `finally`.
+Отличие от первоначального плана: вместо «задержки 700–800 мс и 3 попыток» используется событийное
+ожидание первого кадра; попадание анимации диалога в кадр проверяется на устройстве.
+Проверка: получен кадр 1:1, отображается в `CaptureActivity` с размерами. Требуется проверка на Mi 9T.
 
 **Шаг 5. Экран выделения.**
 `SelectionView`: кадр как фон, затемнение вне рамки, надпись «Выделите область», протяжка
@@ -341,6 +346,9 @@ JVM-тесты геометрии, `assembleDebug`/`assembleRelease`, прого
 | Модели 29,3 МБ дублируются в APK и в `filesDir` | Низкое | однократное копирование, проверка по размеру; при нехватке места — сообщение | установка на устройство |
 | `targetSdk 30` не подходит для Google Play | Низкое (публикация не нужна) | sideload; при необходимости позже `targetSdk 34` (+`POST_NOTIFICATIONS`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`) | решение до реализации |
 | Каждый CI-запуск создаёт новый debug-ключ → APK не устанавливается «поверх» | Среднее | согласованный вариант A: разовое удаление приложения; постоянный keystore не используется | `apksigner verify --print-certs` |
+| Передача полноэкранного Bitmap через Binder (`ResultReceiver`) | Высокое | кадр передаётся process-local через `CaptureResultHolder` с сессионной очисткой | код + отсутствие `TransactionTooLargeException` в logcat |
+| Activity остаётся невидимой, если сервис не ответил | Среднее | watchdog 10 с: остановка сервиса и сообщение об ошибке | тест отказа/убийства сервиса |
+| Анимация диалога согласия попадает в кадр | Среднее | событийное ожидание первого кадра; проверка на устройстве | визуальная проверка кадра |
 
 ### 9.2 Открытые вопросы (не считать решёнными до тестирования)
 
@@ -373,17 +381,22 @@ JVM-тесты геометрии, `assembleDebug`/`assembleRelease`, прого
 
 ## 11. Сборка и проверка
 
-**Результат 2026-10-28 (версия 0.2.0):** `./gradlew --no-daemon :app:assembleDebug` — BUILD SUCCESSFUL
-(33 задачи, 23 с). `aapt`: `versionCode=2`, `versionName=0.2.0`, label **Screen Graber**, package
-`com.screengraber.text`, разрешений нет, сервис плитки присутствует. Лог —
-`docs/build-logs/assembleDebug-2026-10-28-tile.txt`.
+**Результат 2026-10-28 (версия 0.3.0):** `./gradlew --no-daemon :app:assembleDebug` — BUILD SUCCESSFUL
+(33 задачи, 10 с). `aapt`: `versionCode=3`, `versionName=0.3.0`, label **Screen Graber**, package
+`com.screengraber.text`, разрешение только `FOREGROUND_SERVICE`, сервис
+`ProjectionService` с `foregroundServiceType=mediaProjection`, `CaptureActivity` не экспортирована,
+плитка без изменений. Лог — `docs/build-logs/assembleDebug-2026-10-28-capture.txt`.
 
-GitHub Actions: workflow `.github/workflows/build-debug.yml` **есть в GitHub** (добавлен вручную).
-Запуск `40569147336` завершился успешно на коммите `7716d8e` (версия 0.1.0), артефакты APK и лога
-доступны. Для `7ae2f88` (0.2.0) CI **не запускался**: dispatch из Cline запрещён (HTTP 403),
-нужен ручной запуск. Проверка на телефоне всё ещё не выполнялась. Важно: CI-APK и локальная сборка
-подписаны разными debug-ключами, поэтому установка «поверх» невозможна — допускается разовое
-удаление приложения.
+`./gradlew :app:lintDebug` завершается **FAILED** ровно по одной ошибке
+`ExpiredTargetSdkVersion` («Google Play requires target API 33+») при `targetSdk = 30`.
+Это осознанное решение для Android 11 / sideload, не ошибка кода; SDK не повышался.
+Остальные замечания — 2 предупреждения: deprecated `startActivityAndCollapse(Intent)` (используется
+только до API 33, для 34+ есть ветка с `PendingIntent`) и `ChromeOsAbiSupport` (сборка только arm64).
+
+GitHub Actions: workflow `.github/workflows/build-debug.yml` **есть в GitHub**. Запуск
+`40569147336` успешен на `7716d8e` (0.1.0). Для 0.3.0 CI не запускался: dispatch из Cline запрещён
+(HTTP 403), нужен ручной запуск. Проверка на телефоне не выполнялась. CI-APK и локальная сборка
+подписаны разными debug-ключами — установка «поверх» невозможна, допускается разовое удаление.
 
 Команды:
 
@@ -399,7 +412,7 @@ adb logcat -c && adb logcat -s ScreenGraber:V AndroidRuntime:E
 
 ```bash
 aapt dump badging app-debug.apk       # package, sdkVersion=29, targetSdkVersion=30, label
-aapt dump permissions app-debug.apk   # разрешений нет
+aapt dump permissions app-debug.apk   # только FOREGROUND_SERVICE
 ```
 
 В песочнице для HTTPS-запросов Gradle потребовался отдельный truststore с CA прокси

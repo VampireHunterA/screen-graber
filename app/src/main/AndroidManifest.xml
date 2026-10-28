@@ -2,10 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-        Разрешения на этом этапе не запрашиваются.
-        INTERNET, SYSTEM_ALERT_WINDOW, MediaProjection и foreground service
-        будут добавлены только на соответствующих этапах.
+        Нужен только foreground service для MediaProjection.
+        INTERNET, SYSTEM_ALERT_WINDOW и Accessibility Service не используются.
     -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:allowBackup="false"
@@ -23,6 +23,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".capture.CaptureActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.ScreenGraber.Transparent" />
+
+        <service
+            android:name=".capture.ProjectionService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
         <service
             android:name=".tile.CaptureTileService"
             android:exported="true"

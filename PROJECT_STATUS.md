@@ -1,9 +1,9 @@
 # PROJECT_STATUS — Screen Graber (захват текста с экрана)
 
-**Дата последнего обновления:** 2026-10-28 04:25 UTC
-**Текущий этап:** Этап 6 — переименование в «Screen Graber» и плитка Quick Settings (реализовано и собрано локально; **на телефоне не проверено**)
-**Статус кода:** плитка открывает `MainActivity`; захват экрана, MediaProjection, выделение и OCR **не реализованы**
-**Сборка/тесты:** локально `assembleDebug` — BUILD SUCCESSFUL (лог: `docs/build-logs/assembleDebug-2026-10-28-tile.txt`). CI для 0.2.0 **не запускался**: dispatch из Cline запрещён (HTTP 403). Предыдущий CI-запуск `40569147336` — success на коммите `7716d8e` (версия 0.1.0). Автотестов нет. На физическом устройстве не проверялось
+**Дата последнего обновления:** 2026-10-28 05:26 UTC
+**Текущий этап:** Этап 7 — захват одного кадра через MediaProjection (версия 0.3.0). Локальная сборка успешна; **на телефоне не проверено**
+**Статус кода:** плитка открывает `CaptureActivity`; после системного согласия захватывается один кадр и показывается с размерами. Выделение области и OCR **не реализованы**
+**Сборка/тесты:** локально `assembleDebug` — BUILD SUCCESSFUL (лог: `docs/build-logs/assembleDebug-2026-10-28-capture.txt`). CI для 0.3.0 не запускался. Автотестов нет. На физическом устройстве не проверялось
 
 > Этот документ фиксирует **фактическое** состояние. Он не заменяет Git-коммиты и не доказывает,
 > что приложение собирается или работает. Всё, что не подтверждено доказательством (лог, отчёт,
@@ -60,14 +60,14 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 | Параметр | Значение | Основание |
 |---|---|---|
 | Пакет / метка | `com.screengraber.text` / **Screen Graber** | applicationId не менялся; метка обновлена в 0.2.0 |
-| Версия | `versionCode 2`, `versionName 0.2.0` | обновлено для установки поверх (при совпадении подписи) |
+| Версия | `versionCode 3`, `versionName 0.3.0` | обновлено |
+| Разрешения | только `FOREGROUND_SERVICE` | `aapt dump permissions`; `INTERNET`/`SYSTEM_ALERT_WINDOW` отсутствуют |
 | `compileSdk` / `buildToolsVersion` | 35 / 35.0.0 | требование AGP 8.7 (максимум API 35); пакеты установлены и использованы |
 | `minSdk` | 29 | Android 10+: обязательный foreground service типа `mediaProjection`; устройство — Android 11 |
 | `targetSdk` | 30 | согласовано |
 | ABI | `arm64-v8a` (`abiFilters`) | устройство ARM64; нативных библиотек пока нет |
 | AGP / Gradle / Kotlin / JDK | 8.7.2 / 8.9 / 2.1.10 / 17 | совместимость сверена по официальным таблицам; сборка прошла |
-| Зависимости | отсутствуют | каркас использует только Kotlin stdlib |
-| Разрешения | отсутствуют | `aapt dump permissions` показывает только имя пакета |
+| Зависимости | отсутствуют | проект использует только Kotlin stdlib |
 
 ### 3.2 Остаётся проектным решением (не влияет на текущий каркас)
 
@@ -99,6 +99,11 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 | APK: `package=com.screengraber.text`, `versionCode=2`, `versionName=0.2.0`, `sdkVersion=29`, `targetSdkVersion=30`, label **Screen Graber** | `aapt dump badging` |
 | В манифесте APK есть `CaptureTileService` с `android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"`, `exported=true`, intent-filter `QS_TILE` | `aapt dump xmltree` |
 | Подписи CI-APK и локального debug-keystore различаются: `fd68cbd8…` против `3F2C4789…` | `apksigner verify --print-certs`, `keytool -list` |
+| Реализован разовый захват кадра: `CaptureActivity` + `ProjectionService` (FGS `mediaProjection`) + `ScreenCapture` (ImageReader, ожидание кадра через `CountDownLatch`) | исходники, локальная сборка |
+| В APK: `ProjectionService` с `foregroundServiceType=mediaProjection`, `CaptureActivity` не экспортирована, плитка и её иконка без изменений | `aapt dump xmltree` |
+| Разрешение только `FOREGROUND_SERVICE`; `INTERNET`, `SYSTEM_ALERT_WINDOW`, Accessibility отсутствуют | `aapt dump permissions` |
+| Кадр не передаётся через Binder: process-local `CaptureResultHolder` с сессионной очисткой; «поздний» кадр отклоняется и освобождается | исходники |
+| Есть watchdog 10 с: если сервис не ответил, он останавливается, показывается ошибка | исходники |
 
 ### 4.2 Предполагается и требует проверки на Xiaomi Mi 9T
 
@@ -114,12 +119,16 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 
 ## 5. Текущий этап
 
-**Этап 6 — переименование и плитка Quick Settings.** Приложение называется **Screen Graber**
-(`applicationId` не менялся), версия 0.2.0 (`versionCode 2`). Добавлен `CaptureTileService`:
-плитка появляется в списке плиток и по нажатию открывает `MainActivity`. Локальная сборка
-`:app:assembleDebug` — **BUILD SUCCESSFUL**, APK 2,3 МБ, разрешений нет. Захват экрана,
-MediaProjection, выделение области, OCR и буфер обмена **не реализованы**. Установка и проверка
-плитки на Xiaomi Mi 9T — за пользователем; в этой сессии устройство недоступно.
+**Этап 7 — захват одного кадра (версия 0.3.0, `versionCode 3`).** Плитка открывает `CaptureActivity`.
+Activity прозрачна до получения кадра, запрашивает системное согласие MediaProjection, запускает
+`ProjectionService` (foreground service типа `mediaProjection`), получает один кадр через
+`ScreenCapture` и показывает его с размерами. Кнопка «Закрыть» завершает сеанс и возвращает
+в исходное приложение. Отказ, таймаут, `SecurityException`, `onStop` проекции и закрытие экрана
+приводят к идемпотентной очистке. Кадр передаётся в процессе через `CaptureResultHolder`; сессия
+закрывается при любом завершении, «поздний» кадр отклоняется. На случай отсутствия ответа сервиса
+есть watchdog 10 с. Выделение области, OCR и буфер обмена **не реализованы**. На Xiaomi Mi 9T
+ничего не проверялось.
+
 
 
 
@@ -130,9 +139,10 @@ MediaProjection, выделение области, OCR и буфер обмен
 | Ветка | `main`, история линейная, без force push |
 | Коммиты | `bab14d2` (docs) → `1b31ed4` (каркас) → `e6a3baf` (docs/CI) → ручные правки workflow пользователем → `7716d8e` (актуальный `origin/main`) |
 | Синхронизация | локальная копия обновлена fast-forward до `7716d8e`; устаревший untracked `.github/workflows/build-debug.yml` удалён (рабочая версия осталась на GitHub) |
-| Коммит этапа 6 | `7ae2f882b49557f0f3bc7b6717a4644f6923547a` — `feat: rename to Screen Graber and add quick settings tile`; отправлен в `origin/main` |
+| Коммит этапа 6 | `7ae2f88` — `feat: rename to Screen Graber and add quick settings tile` |
+| Коммит этапа 7 | создаётся после локальной проверки; SHA — в отчёте и `git log -1` |
 | Remote | `origin` → `https://github.com/VampireHunterA/screen-graber.git` (не менялся) |
-| CI | workflow `Build debug APK` существует на GitHub; запуск `40569147336` — success на `7716d8e` |
+| CI | workflow `Build debug APK` есть на GitHub; запуск `40569147336` — success на `7716d8e` (0.1.0). Для 0.3.0 запуск не выполнялся |
 | Действия с Git | ветка не менялась и не создавалась, force push не выполнялся, remote и Git-конфигурация не менялись |
 
 Файлы проекта: `.github/workflows/build-debug.yml` (в GitHub), `PROJECT_STATUS.md`,
@@ -177,7 +187,7 @@ MediaProjection, выделение области, OCR и буфер обмен
 | 3а | Gradle-каркас, `MainActivity`, сборка debug APK | Проверен: `BUILD SUCCESSFUL`, лог в `docs/build-logs/` |
 | 3в | GitHub Actions workflow для ручной сборки APK | Подготовлен локально, проверен `actionlint`; в GitHub не добавлен (нет права `workflows`); запуск не выполнялся |
 | 3б | Плитка Quick Settings | Реализована (0.2.0), локальная сборка успешна; на устройстве не проверена |
-| 4 | MediaProjection: согласие, foreground service, захват кадра | Не начат |
+| 4 | MediaProjection: согласие, foreground service, захват кадра | Реализован в 0.3.0 (один кадр); локальная сборка успешна, на устройстве не проверен |
 | 5 | Экран выделения: рамка, 8 маркеров, подтверждение, обрезка | Не начат |
 | 6 | OCR: установка моделей из assets, Tesseract `rus+eng` | Не начат |
 | 7 | Экран результата, буфер обмена, обработка отмены/ошибок/таймаутов | Не начат |
@@ -210,10 +220,14 @@ MediaProjection, выделение области, OCR и буфер обмен
 | 2026-10-28 | Локальная сборка 0.2.0 — BUILD SUCCESSFUL; `aapt`: label Screen Graber, versionCode 2, сервис с `BIND_QUICK_SETTINGS_TILE`, разрешений нет | `docs/build-logs/assembleDebug-2026-10-28-tile.txt`, `aapt dump` |
 | 2026-10-28 | Коммит `7ae2f88` отправлен в `origin/main`; локальный и удалённый SHA совпадают | `git push`, `git ls-remote` |
 | 2026-10-28 | Попытка запустить CI для 0.2.0 отклонена GitHub: HTTP 403 (у App нет права Actions write) | вывод `gh workflow run` |
+| 2026-10-28 | Реализован разовый захват кадра (0.3.0): `CaptureActivity`, `ProjectionService`, `ScreenCapture`, `CaptureResultHolder`; плитка и иконка сохранены | файлы проекта |
+| 2026-10-28 | Локальная сборка 0.3.0 — BUILD SUCCESSFUL; `aapt`: versionCode 3, label Screen Graber, только `FOREGROUND_SERVICE`, `foregroundServiceType=mediaProjection` | `docs/build-logs/assembleDebug-2026-10-28-capture.txt`, `aapt dump` |
+| 2026-10-28 | `lintDebug`: **FAILED** ровно из-за одной ошибки `ExpiredTargetSdkVersion` (targetSdk 30 < 33, осознанно для Android 11); 2 предупреждения (`startActivityAndCollapse` deprecated для API 34+, arm64-only) | `app/build/reports/lint-results-debug.txt` |
+| 2026-10-28 | Исправлена передача кадра: сессионный `CaptureResultHolder` (поздний кадр отклоняется и освобождается), watchdog 10 с, обработка исключения запуска FGS | код |
+| 2026-10-28 | Повторная сборка 0.3.0 — BUILD SUCCESSFUL; lint перепроверен — та же единственная ошибка политики Google Play | `docs/build-logs/assembleDebug-2026-10-28-capture.txt`, lint-отчёт |
 
-События, которых не было: CI-запуск версии 0.2.0, установка версии 0.2.0 на Xiaomi Mi 9T,
-проверка плитки на устройстве, запуск автотестов, реализация захвата экрана, MediaProjection,
-выделения и OCR.
+События, которых не было: CI-запуск версии 0.3.0, установка 0.3.0 на Xiaomi Mi 9T, проверка захвата
+на устройстве, запуск автотестов, реализация выделения области и OCR.
 
 ## 11. Локальный toolchain (вне репозитория)
 
@@ -266,6 +280,7 @@ MediaProjection, выделение области, OCR и буфер обмен
 |---|---|---|---|
 | [40569147336](https://github.com/VampireHunterA/screen-graber/actions/runs/40569147336) | `7716d8e` | success, 1m37s | `screen-graber-debug-apk` (748 688 Б), `screen-graber-build-log` (1 019 Б) |
 | — | `7ae2f88` (0.2.0) | **не запускался**: `gh workflow run` вернул HTTP 403 (у GitHub App нет права Actions write) | — |
+| — | 0.3.0 (коммит этапа 7) | **не запускался**: dispatch из Cline недоступен (HTTP 403) | — |
 
 Для версии 0.2.0 запуск нужно выполнить вручную: **Actions → Build debug APK → Run workflow → main**.
 
@@ -273,23 +288,29 @@ MediaProjection, выделение области, OCR и буфер обмен
 workflow; они не относятся к текущему коду. CI-сборка **не заменяет** установку и проверку на
 Xiaomi Mi 9T: плитка на устройстве ещё не проверялась.
 
-## 13. Установка версии 0.2.0 на телефон
+## 13. Установка версии 0.3.0 и проверка на телефоне
 
-Проверено: CI-APK подписан сертификатом `fd68cbd8…`, локальный debug-keystore — `3F2C4789…`.
-GitHub Actions создаёт новый debug-ключ на каждом запуске, поэтому **установка «поверх» завершится
-`INSTALL_FAILED_UPDATE_INCOMPATIBLE`**. Решение (вариант A, согласован): один раз удалить старую
-версию.
+Подписи CI-сборок не совпадают между запусками, поэтому установка «поверх» завершится
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE`. Решение (вариант A): один раз удалить старую версию.
 
 ```bash
 adb uninstall com.screengraber.text
 adb install app-debug.apk
 ```
 
-Затем:
+**Что проверить на Xiaomi Mi 9T (Android 11 / MIUI 12):**
 
-1. Запустить приложение один раз (пока пакет в состоянии stopped, SystemUI может не привязать плитку).
-2. Открыть шторку → «Изменить» → найти **Screen Graber** → перетащить в активные.
-3. Нажать плитку: панель свернётся, откроется `MainActivity`. Захвата экрана и запросов разрешений
-   быть не должно.
-4. Если плитка не появилась или серая — перезагрузить телефон и повторить; это известная
-   особенность сторонних плиток MIUI 12, а не ошибка приложения.
+1. Запустить приложение один раз (пакет не должен оставаться в состоянии stopped).
+2. Плитка **Screen Graber** присутствует в правке шторки; иконка не изменилась.
+3. Тап по плитке → панель сворачивается → появляется **системный диалог MediaProjection**.
+4. «Отмена» в диалоге → приложение закрывается, уведомления и зависшего экрана нет.
+5. «Начать сейчас» → появляется кадр, подпись «Кадр: W × H» (ожидаемо 1080 × 2340).
+   В кадре **не должно быть** шторки, диалога согласия и самой Activity.
+6. «Закрыть» → возврат в то же приложение; уведомление «Получение кадра» исчезает.
+7. Повторить 5 раз подряд (включая отмену) — не должно оставаться окон/уведомлений/сервиса.
+8. Проверить `adb shell dumpsys activity services com.screengraber.text` после выхода — сервиса нет.
+9. Проверить в приложении с `FLAG_SECURE` (банк): ожидается чёрный кадр — это ограничение платформы.
+10. `adb logcat -s AndroidRuntime:E` — без исключений, особенно `SecurityException` /
+    `TransactionTooLargeException`.
+
+Если плитка серая или исчезла — перезагрузка и повторное добавление: известная особенность MIUI 12.

@@ -7,14 +7,14 @@ import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.widget.Toast
-import com.screengraber.text.MainActivity
 import com.screengraber.text.R
+import com.screengraber.text.capture.CaptureActivity
 
 /**
  * Плитка «Screen Graber» в шторке быстрых настроек.
  *
- * На этом этапе плитка только открывает [MainActivity].
- * Захват экрана, MediaProjection и OCR ещё не реализованы.
+ * Плитка открывает [CaptureActivity]: после системного согласия приложение
+ * захватывает один кадр экрана. Выделение области и OCR ещё не реализованы.
  */
 class CaptureTileService : TileService() {
 
@@ -31,14 +31,14 @@ class CaptureTileService : TileService() {
     override fun onClick() {
         super.onClick()
         if (isLocked) {
-            unlockAndRun { openMainScreen() }
+            unlockAndRun { openCaptureScreen() }
         } else {
-            openMainScreen()
+            openCaptureScreen()
         }
     }
 
-    private fun openMainScreen() {
-        val intent = Intent(this, MainActivity::class.java).apply {
+    private fun openCaptureScreen() {
+        val intent = Intent(this, CaptureActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         try {
