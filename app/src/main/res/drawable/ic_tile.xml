@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Монохромная иконка плитки: система сама тонирует её под тему. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M3,3H9V5H5V9H3ZM15,3H21V9H19V5H15ZM3,15H5V19H9V21H3ZM15,19H19V15H21V21H15ZM7,9H17V11H7ZM7,13H13V15H7Z" />
+</vector>

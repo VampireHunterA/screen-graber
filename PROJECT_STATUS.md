@@ -1,9 +1,9 @@
 # PROJECT_STATUS — Screen Graber (захват текста с экрана)
 
-**Дата последнего обновления:** 2026-10-27 18:41 UTC
-**Текущий этап:** Этап 5 — GitHub Actions для сборки APK (workflow подготовлен; **в GitHub не добавлен** из-за отсутствия права `workflows`; запуск не выполнялся)
-**Статус кода:** минимальный каркас создан; debug APK собран локально. Плитка, захват экрана, выделение и OCR **не реализованы**
-**Сборка/тесты:** локально `assembleDebug` — BUILD SUCCESSFUL (лог: `docs/build-logs/assembleDebug-2026-10-27.txt`). CI-сборка ещё не запускалась. Автотестов нет. На физическом устройстве не проверялось
+**Дата последнего обновления:** 2026-10-28 04:25 UTC
+**Текущий этап:** Этап 6 — переименование в «Screen Graber» и плитка Quick Settings (реализовано и собрано локально; **на телефоне не проверено**)
+**Статус кода:** плитка открывает `MainActivity`; захват экрана, MediaProjection, выделение и OCR **не реализованы**
+**Сборка/тесты:** локально `assembleDebug` — BUILD SUCCESSFUL (лог: `docs/build-logs/assembleDebug-2026-10-28-tile.txt`). Предыдущий CI-запуск `40569147336` — success на коммите `7716d8e`. Автотестов нет. На физическом устройстве не проверялось
 
 > Этот документ фиксирует **фактическое** состояние. Он не заменяет Git-коммиты и не доказывает,
 > что приложение собирается или работает. Всё, что не подтверждено доказательством (лог, отчёт,
@@ -59,7 +59,8 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 
 | Параметр | Значение | Основание |
 |---|---|---|
-| Пакет / метка | `com.screengraber.text` / «Захват текста» | подтверждено пользователем, конфликтов не найдено |
+| Пакет / метка | `com.screengraber.text` / **Screen Graber** | applicationId не менялся; метка обновлена в 0.2.0 |
+| Версия | `versionCode 2`, `versionName 0.2.0` | обновлено для установки поверх (при совпадении подписи) |
 | `compileSdk` / `buildToolsVersion` | 35 / 35.0.0 | требование AGP 8.7 (максимум API 35); пакеты установлены и использованы |
 | `minSdk` | 29 | Android 10+: обязательный foreground service типа `mediaProjection`; устройство — Android 11 |
 | `targetSdk` | 30 | согласовано |
@@ -95,7 +96,9 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 | Toolchain установлен локально вне репозитория: JDK 17.0.21 (Temurin), Gradle 8.9, Android SDK platform 35, build-tools 35.0.0 | `java -version`, `sdkmanager` |
 | Локальная сборка каркаса успешна: `BUILD SUCCESSFUL in 24s`, 33 задачи, APK 2,3 МБ | `docs/build-logs/assembleDebug-2026-10-27.txt` |
 | В APK нет ни одного разрешения | `aapt dump permissions app-debug.apk` → только имя пакета |
-| APK: `package=com.screengraber.text`, `sdkVersion=29`, `targetSdkVersion=30`, label «Захват текста» | `aapt dump badging` |
+| APK: `package=com.screengraber.text`, `versionCode=2`, `versionName=0.2.0`, `sdkVersion=29`, `targetSdkVersion=30`, label **Screen Graber** | `aapt dump badging` |
+| В манифесте APK есть `CaptureTileService` с `android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"`, `exported=true`, intent-filter `QS_TILE` | `aapt dump xmltree` |
+| Подписи CI-APK и локального debug-keystore различаются: `fd68cbd8…` против `3F2C4789…` | `apksigner verify --print-certs`, `keytool -list` |
 
 ### 4.2 Предполагается и требует проверки на Xiaomi Mi 9T
 
@@ -111,31 +114,31 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 
 ## 5. Текущий этап
 
-**Этап 4 — каркас Android и сохранение прогресса.** Создан минимальный Gradle-проект на Kotlin
-(AGP 8.7.2, Gradle 8.9, Kotlin 2.1.10, JDK 17), манифест с одной `MainActivity`, ресурсы, wrapper.
-Локально выполнена сборка `:app:assembleDebug` — **BUILD SUCCESSFUL**, получен APK 2,3 МБ без
-разрешений. Плитка Quick Settings, MediaProjection, выделение области, OCR и буфер обмена
-**не реализованы**; на физическом устройстве ничего не проверялось. GitHub Actions не настраивался,
-поскольку локальная сборка оказалась возможна.
+**Этап 6 — переименование и плитка Quick Settings.** Приложение называется **Screen Graber**
+(`applicationId` не менялся), версия 0.2.0 (`versionCode 2`). Добавлен `CaptureTileService`:
+плитка появляется в списке плиток и по нажатию открывает `MainActivity`. Локальная сборка
+`:app:assembleDebug` — **BUILD SUCCESSFUL**, APK 2,3 МБ, разрешений нет. Захват экрана,
+MediaProjection, выделение области, OCR и буфер обмена **не реализованы**. Установка и проверка
+плитки на Xiaomi Mi 9T — за пользователем; в этой сессии устройство недоступно.
+
 
 
 ## 6. Git-статус (по фактической проверке)
 
 | Параметр | Значение |
 |---|---|
-| Ветка | `main` |
-| Коммит с документацией | `bab14d2` — `docs: add initial project plan` (корневой коммит) |
-| Коммит с каркасом | создаётся в этом этапе, сообщение `build: add minimal Android app skeleton`; SHA — в `git log -1` и в отчёте сессии |
-| Удалённая ветка | `origin/main` = `bab14d2`; проверено `git ls-remote --heads origin` и GitHub API (`/branches`, `/contents`, `/commits/main`) |
+| Ветка | `main`, история линейная, без force push |
+| Коммиты | `bab14d2` (docs) → `1b31ed4` (каркас) → `e6a3baf` (docs/CI) → ручные правки workflow пользователем → `7716d8e` (актуальный `origin/main`) |
+| Синхронизация | локальная копия обновлена fast-forward до `7716d8e`; устаревший untracked `.github/workflows/build-debug.yml` удалён (рабочая версия осталась на GitHub) |
+| Коммит этапа 6 | создаётся после локальной проверки; SHA — в отчёте и `git log -1` |
 | Remote | `origin` → `https://github.com/VampireHunterA/screen-graber.git` (не менялся) |
-| Upstream локальной ветки | `origin/main` (появился после первого push; `-u` не использовался, конфигурация не менялась) |
-| Рабочее дерево перед этапом 4 | чистое |
+| CI | workflow `Build debug APK` существует на GitHub; запуск `40569147336` — success на `7716d8e` |
 | Действия с Git | ветка не менялась и не создавалась, force push не выполнялся, remote и Git-конфигурация не менялись |
 
-Файлы проекта (после коммита этапа 4): `PROJECT_STATUS.md`, `IMPLEMENTATION_PLAN.md`,
-`settings.gradle.kts`, `build.gradle.kts`, `gradle.properties`, `gradlew`, `gradlew.bat`,
-`gradle/wrapper/*`, `.gitignore`, `docs/build-logs/*`, `app/**`.
+Файлы проекта: `.github/workflows/build-debug.yml` (в GitHub), `PROJECT_STATUS.md`,
+`IMPLEMENTATION_PLAN.md`, Gradle-конфигурация и wrapper, `.gitignore`, `docs/build-logs/*`, `app/**`.
 `local.properties` (путь к SDK) и `app/build/` намеренно не коммитятся — они в `.gitignore`.
+
 
 
 ## 7. Следующий разрешённый шаг
@@ -173,7 +176,7 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 | 2 | Документация и согласованный план | Проверен: коммит `bab14d2`, отправлен в `origin/main`, проверен через API |
 | 3а | Gradle-каркас, `MainActivity`, сборка debug APK | Проверен: `BUILD SUCCESSFUL`, лог в `docs/build-logs/` |
 | 3в | GitHub Actions workflow для ручной сборки APK | Подготовлен локально, проверен `actionlint`; в GitHub не добавлен (нет права `workflows`); запуск не выполнялся |
-| 3б | Плитка Quick Settings | Не начат |
+| 3б | Плитка Quick Settings | Реализована (0.2.0), локальная сборка успешна; на устройстве не проверена |
 | 4 | MediaProjection: согласие, foreground service, захват кадра | Не начат |
 | 5 | Экран выделения: рамка, 8 маркеров, подтверждение, обрезка | Не начат |
 | 6 | OCR: установка моделей из assets, Tesseract `rus+eng` | Не начат |
@@ -201,9 +204,13 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 | 2026-10-27 | Подготовлен `.github/workflows/build-debug.yml` (ручной запуск, JDK 17, SDK 35, артефакты APK и лога), проверен `actionlint 1.7.12` | локальный файл, вывод actionlint (exit 0) |
 | 2026-10-27 | Push workflow отклонён GitHub: у GitHub App нет права `workflows`; файл оставлен локально и требует ручного добавления | вывод `git push` (remote rejected) |
 | 2026-10-27 | Повторная локальная сборка перед CI: BUILD SUCCESSFUL, 33 задачи up-to-date | `docs/build-logs/assembleDebug-2026-10-27-rebuild.txt` |
+| 2026-10-28 | Пользователь добавил workflow в GitHub и запустил CI: run `40569147336` — success на `7716d8e`, APK и лог доступны как артефакты | `gh run view`, `gh api .../artifacts` |
+| 2026-10-28 | Локальная ветка синхронизирована fast-forward до `7716d8e`; удалена устаревшая untracked-копия workflow | `git pull --ff-only` |
+| 2026-10-28 | Переименование в Screen Graber, версия 0.2.0, добавлены `CaptureTileService` и `ic_tile.xml` | файлы проекта |
+| 2026-10-28 | Локальная сборка 0.2.0 — BUILD SUCCESSFUL; `aapt`: label Screen Graber, versionCode 2, сервис с `BIND_QUICK_SETTINGS_TILE`, разрешений нет | `docs/build-logs/assembleDebug-2026-10-28-tile.txt`, `aapt dump` |
 
-События, которых не было: запуск CI-workflow, скачивание APK из CI, запуск автотестов, установка APK
-на Xiaomi Mi 9T и проверка на устройстве, реализация плитки, MediaProjection, выделения и OCR.
+События, которых не было: установка версии 0.2.0 на Xiaomi Mi 9T, проверка плитки на устройстве,
+запуск автотестов, реализация захвата экрана, MediaProjection, выделения и OCR.
 
 ## 11. Локальный toolchain (вне репозитория)
 
@@ -224,21 +231,12 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 
 ## 12. CI-сборка GitHub Actions
 
-Файл: `.github/workflows/build-debug.yml` (подготовлен локально).
+Файл: `.github/workflows/build-debug.yml` — **есть в GitHub** (добавлен вручную, CI-проверен).
 
-> **Статус: файла нет в GitHub.** Push отклонён:
-> `refusing to allow a GitHub App to create or update workflow .github/workflows/build-debug.yml without 'workflows' permission`.
-> Добавление файла через API/git из этой среды невозможно и обходить ограничение нельзя.
-> Файл нужно создать вручную через веб-интерфейс GitHub (инструкция ниже).
-
-**Как добавить (мобильный интерфейс GitHub):**
-
-1. Открыть репозиторий `VampireHunterA/screen-graber` → ветка `main`.
-2. **Add file → Create new file**.
-3. В поле имени ввести точный путь: `.github/workflows/build-debug.yml`.
-4. Вставить полный YAML из отчёта сессии (или из локального файла `.github/workflows/build-debug.yml`).
-5. **Commit changes** (можно напрямую в `main`).
-6. После коммита открыть вкладку **Actions** — появится workflow **«Build debug APK»**.
+> История: первая попытка push из Cline была отклонена GitHub (у GitHub App нет права `workflows`).
+> Workflow добавлен пользователем через веб-интерфейс; версия на GitHub отличается от исходной
+> (используется `android-actions/setup-android@v4`). Локальная устаревшая копия удалена при
+> синхронизации. Изменять workflow из Cline по-прежнему нельзя — нужен ручной коммит через веб.
 
 **Как запустить вручную:** GitHub → вкладка **Actions** → workflow **«Build debug APK»** →
 кнопка **Run workflow** → ветка `main` → **Run workflow**.
@@ -259,6 +257,33 @@ Android-приложение для Xiaomi Mi 9T (Android 11 / MIUI 12): по н
 
 Где скачать: открыть запуск → раздел **Artifacts** внизу страницы.
 
-Синтаксис YAML проверен `actionlint 1.7.12` (exit 0). **Ни один запуск не выполнялся**, поэтому
-нельзя утверждать, что CI-сборка успешна. Успешная CI-сборка также **не означает**, что APK
-устанавливается и работает на Xiaomi Mi 9T: установка и проверка на устройстве не проводились.
+**Фактические запуски:**
+
+| Run | Коммит | Результат | Артефакты |
+|---|---|---|---|
+| [40569147336](https://github.com/VampireHunterA/screen-graber/actions/runs/40569147336) | `7716d8e` | success, 1m37s | `screen-graber-debug-apk` (748 688 Б), `screen-graber-build-log` (1 019 Б) |
+
+Более ранние запуски (`40564119940` и три push-запуска) завершились ошибкой при ручной настройке
+workflow; они не относятся к текущему коду. CI-сборка **не заменяет** установку и проверку на
+Xiaomi Mi 9T: плитка на устройстве ещё не проверялась.
+
+## 13. Установка версии 0.2.0 на телефон
+
+Проверено: CI-APK подписан сертификатом `fd68cbd8…`, локальный debug-keystore — `3F2C4789…`.
+GitHub Actions создаёт новый debug-ключ на каждом запуске, поэтому **установка «поверх» завершится
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE`**. Решение (вариант A, согласован): один раз удалить старую
+версию.
+
+```bash
+adb uninstall com.screengraber.text
+adb install app-debug.apk
+```
+
+Затем:
+
+1. Запустить приложение один раз (пока пакет в состоянии stopped, SystemUI может не привязать плитку).
+2. Открыть шторку → «Изменить» → найти **Screen Graber** → перетащить в активные.
+3. Нажать плитку: панель свернётся, откроется `MainActivity`. Захвата экрана и запросов разрешений
+   быть не должно.
+4. Если плитка не появилась или серая — перезагрузить телефон и повторить; это известная
+   особенность сторонних плиток MIUI 12, а не ошибка приложения.

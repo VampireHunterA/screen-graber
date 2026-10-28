@@ -1,6 +1,6 @@
 # IMPLEMENTATION_PLAN — Screen Graber v1
 
-**Статус:** план согласован 2026-10-27; минимальный каркас реализован и собран локально (этап 4). Функции захвата, выделения и OCR не начаты.
+**Статус:** 2026-10-28: каркас и плитка Quick Settings реализованы (версия 0.2.0), собраны локально и в CI. Плитка на устройстве ещё не проверена. Функции захвата, выделения и OCR не начаты.
 **Целевое устройство:** Xiaomi Mi 9T, Android 11 / MIUI 12.
 **Связанный документ:** `PROJECT_STATUS.md` (фактическое состояние и Git-статус).
 
@@ -58,7 +58,8 @@ finish() → возврат в исходное приложение (оно б�
 | Интерфейс | `MainActivity` (инструкция/диагностика) + выделение + результат | согласовано |
 | `compileSdk` / `minSdk` | 35 / 29 | зафиксировано и использовано в сборке |
 | `buildToolsVersion` | 35.0.0 | зафиксировано |
-| Пакет / метка | `com.screengraber.text` / «Захват текста» | зафиксировано |
+| Пакет / метка | `com.screengraber.text` / **Screen Graber** | зафиксировано; applicationId не менялся |
+| Версия | `versionCode 2` / `versionName 0.2.0` | зафиксировано |
 | ABI | `arm64-v8a` | зафиксировано (`abiFilters`) |
 | AGP / Gradle / Kotlin / JDK | 8.7.2 / 8.9 / 2.1.10 / 17 | зафиксировано, сборка успешна |
 
@@ -145,15 +146,19 @@ VirtualDisplay, foreground service и уведомление.
         └── test/java/com/screengraber/text/SelectionGeometryTest.kt
 ```
 
-**Состояние на этапе 4:**
+**Состояние на этапе 6:**
 
 - **Создано и проверено сборкой:** Gradle-конфигурация (`settings.gradle.kts`, `build.gradle.kts`,
   `gradle.properties`), wrapper 8.9, `.gitignore`, `AndroidManifest.xml`, `MainActivity.kt`,
-  `activity_main.xml`, `strings.xml`, `themes.xml`, `ic_launcher.xml`, `proguard-rules.pro`.
-- **Ещё не создано:** `App.kt`, пакеты `tile/`, `capture/`, `ui/`, `ocr/`, `util/`, `assets/tessdata/*`,
-  `NOTICE.txt`, `SelectionGeometryTest.kt`. Они появятся на этапах 3б–8.
-- **Зависимостей нет:** каркас использует только Kotlin stdlib; Tesseract4Android и модели будут
-  добавлены на этапе 6.
+  `tile/CaptureTileService.kt`, `activity_main.xml`, `strings.xml`, `themes.xml`,
+  `ic_launcher.xml`, `ic_tile.xml`, `proguard-rules.pro`.
+- **Ещё не создано:** `App.kt`, пакеты `capture/`, `ui/`, `ocr/`, `util/`, `assets/tessdata/*`,
+  `NOTICE.txt`, `SelectionGeometryTest.kt`. Они появятся на этапах 4–8.
+- **Зависимостей нет:** проект использует только Kotlin stdlib; Tesseract4Android и модели будут
+  добавлены на этапе 6 (OCR).
+- **Плитка:** `CaptureTileService` объявлен с `BIND_QUICK_SETTINGS_TILE`, `exported=true`,
+  intent-filter `QS_TILE`; нажатие открывает `MainActivity`. Захвата экрана нет.
+
 
 ### 4.1 Манифест
 
@@ -182,19 +187,19 @@ VirtualDisplay, foreground service и уведомление.
 ## 5. Этапы реализации
 
 Каждый шаг заканчивается проверкой; без неё шаг не считается выполненным.
-Текущий статус: **шаг 1 выполнен**, шаги 2–10 не начаты.
+Текущий статус: **шаги 1–2 выполнены**, шаги 3–10 не начаты.
 
 **Шаг 1. Каркас проекта. — ВЫПОЛНЕН (этап 4).**
 Gradle-файлы, wrapper, `app/build.gradle.kts`, `MainActivity` и тема.
 Проверка: `./gradlew :app:assembleDebug` — **BUILD SUCCESSFUL** (33 задачи, 24 с, APK 2,3 МБ).
 Доказательство: `docs/build-logs/assembleDebug-2026-10-27.txt`.
 
-**Шаг 2. Манифест и плитка.**
+**Шаг 2. Манифест и плитка. — ВЫПОЛНЕН (этап 6; на устройстве не проверен).**
 `CaptureTileService` с иконкой и меткой, обработка `onStartListening`/`onClick`,
-`unlockAndRun` при `isLocked()`, `startActivityAndCollapse` с `NEW_TASK|EXCLUDE_FROM_RECENTS`,
+`unlockAndRun` при `isLocked()`, `startActivityAndCollapse` с `NEW_TASK|CLEAR_TOP`,
 перехват исключений с понятным сообщением.
-Проверка: плитка появляется в правке шторки; тап запускает Activity; панель сворачивается;
-на заблокированном экране сначала запрашивается разблокировка.
+Проверка в APK: сервис с `BIND_QUICK_SETTINGS_TILE`, `exported=true`, intent-filter `QS_TILE`;
+label «Screen Graber». Проверка на телефоне (появление плитки и тап) — за пользователем.
 
 **Шаг 3. MediaProjection и foreground service.**
 `ProjectionService`, запрос согласия из Activity, обработка `RESULT_CANCELED` и `SecurityException`,
@@ -335,6 +340,7 @@ JVM-тесты геометрии, `assembleDebug`/`assembleRelease`, прого
 | Поворот экрана ломает координаты | Низкое | фиксация ориентации на сеанс | тест |
 | Модели 29,3 МБ дублируются в APK и в `filesDir` | Низкое | однократное копирование, проверка по размеру; при нехватке места — сообщение | установка на устройство |
 | `targetSdk 30` не подходит для Google Play | Низкое (публикация не нужна) | sideload; при необходимости позже `targetSdk 34` (+`POST_NOTIFICATIONS`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`) | решение до реализации |
+| Каждый CI-запуск создаёт новый debug-ключ → APK не устанавливается «поверх» | Среднее | согласованный вариант A: разовое удаление приложения; постоянный keystore не используется | `apksigner verify --print-certs` |
 
 ### 9.2 Открытые вопросы (не считать решёнными до тестирования)
 
@@ -367,16 +373,15 @@ JVM-тесты геометрии, `assembleDebug`/`assembleRelease`, прого
 
 ## 11. Сборка и проверка
 
-**Фактический результат (2026-10-27):** локальная сборка выполнена в среде Cline после установки
-toolchain вне репозитория — JDK 17.0.21, Gradle 8.9, Android platform 35, build-tools 35.0.0.
-`./gradlew :app:assembleDebug` завершился **BUILD SUCCESSFUL** (33 задачи, 24 с), получен
-`app/build/outputs/apk/debug/app-debug.apk` размером 2,3 МБ. Полный лог —
-`docs/build-logs/assembleDebug-2026-10-27.txt`.
+**Результат 2026-10-28 (версия 0.2.0):** `./gradlew --no-daemon :app:assembleDebug` — BUILD SUCCESSFUL
+(33 задачи, 23 с). `aapt`: `versionCode=2`, `versionName=0.2.0`, label **Screen Graber**, package
+`com.screengraber.text`, разрешений нет, сервис плитки присутствует. Лог —
+`docs/build-logs/assembleDebug-2026-10-28-tile.txt`.
 
-GitHub Actions: подготовлен ручной workflow `.github/workflows/build-debug.yml`, но **в GitHub он не
-добавлен** — push отклонён из-за отсутствия права `workflows` у GitHub App. Файл нужно добавить
-вручную; инструкция и артефакты описаны в `PROJECT_STATUS.md`, раздел 12. Запуск не выполнялся,
-поэтому CI-сборка не подтверждена. Workflow не заменяет установку и проверку на устройстве.
+GitHub Actions: workflow `.github/workflows/build-debug.yml` **есть в GitHub** (добавлен вручную).
+Запуск `40569147336` завершился успешно на коммите `7716d8e`, артефакты APK и лога доступны.
+Проверка на телефоне всё ещё не выполнялась. Важно: CI-APK и локальная сборка подписаны разными
+debug-ключами, поэтому установка «поверх» невозможна — допускается разовое удаление приложения.
 
 Команды:
 
