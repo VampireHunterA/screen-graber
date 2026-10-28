@@ -1,6 +1,6 @@
 # IMPLEMENTATION_PLAN — Screen Graber v1
 
-**Статус:** 2026-10-28: версия 0.3.0 — реализован разовый захват кадра через MediaProjection (локальная сборка успешна, на устройстве не проверен). Выделение области и OCR не начаты.
+**Статус:** 2026-10-28: версия 0.4.0 — реализованы захват кадра и выделение прямоугольной области (локальная сборка успешна, на устройстве не проверено). OCR не начат.
 **Целевое устройство:** Xiaomi Mi 9T, Android 11 / MIUI 12.
 **Связанный документ:** `PROJECT_STATUS.md` (фактическое состояние и Git-статус).
 
@@ -59,7 +59,7 @@ finish() → возврат в исходное приложение (оно б�
 | `compileSdk` / `minSdk` | 35 / 29 | зафиксировано и использовано в сборке |
 | `buildToolsVersion` | 35.0.0 | зафиксировано |
 | Пакет / метка | `com.screengraber.text` / **Screen Graber** | зафиксировано; applicationId не менялся |
-| Версия | `versionCode 2` / `versionName 0.2.0` | зафиксировано |
+| Версия | `versionCode 4` / `versionName 0.4.0` | зафиксировано |
 | ABI | `arm64-v8a` | зафиксировано (`abiFilters`) |
 | AGP / Gradle / Kotlin / JDK | 8.7.2 / 8.9 / 2.1.10 / 17 | зафиксировано, сборка успешна |
 
@@ -146,19 +146,23 @@ VirtualDisplay, foreground service и уведомление.
         └── test/java/com/screengraber/text/SelectionGeometryTest.kt
 ```
 
-**Состояние на этапе 7:**
+**Состояние на этапе 8:**
 
 - **Создано и проверено сборкой:** Gradle-конфигурация, wrapper 8.9, `.gitignore`, `AndroidManifest.xml`,
   `MainActivity.kt`, `tile/CaptureTileService.kt`, пакет `capture/` (`CaptureActivity`,
-  `ProjectionService`, `ScreenCapture`, `CaptureResultHolder`), `activity_main.xml`,
-  `activity_capture.xml`, `strings.xml`, `themes.xml` (включая `Theme.ScreenGraber.Transparent`),
-  `ic_launcher.xml`, `ic_tile.xml`, `proguard-rules.pro`.
-- **Ещё не создано:** `ui/SelectionView.kt`, `ocr/*`, `util/TessdataInstaller.kt`, `assets/tessdata/*`,
-  `SelectionGeometryTest.kt`. Они появятся на этапах 5–6 (выделение и OCR).
-- **Зависимостей нет:** только Kotlin stdlib; Tesseract4Android и модели будут добавлены на этапе 6 (OCR).
-- **Плитка:** без изменений в иконке и метке, но `onClick` открывает `CaptureActivity`.
+  `ProjectionService`, `ScreenCapture`, `CaptureResultHolder`), `ui/SelectionView.kt`,
+  `activity_main.xml`, `activity_capture.xml`, `strings.xml`, `themes.xml`
+  (`Theme.ScreenGraber.Transparent`), `ic_launcher.xml`, `ic_tile.xml`, `ic_copy.xml`,
+  `bg_copy_button.xml`, `proguard-rules.pro`.
+- **Ещё не создано:** `ocr/*`, `util/TessdataInstaller.kt`, `assets/tessdata/*`,
+  `SelectionGeometryTest.kt`. Они появятся на этапе OCR.
+- **Зависимостей нет:** только Kotlin stdlib; Tesseract4Android и модели будут добавлены на этапе OCR.
+- **Плитка:** без изменений в иконке и метке, `onClick` открывает `CaptureActivity`.
 - **Захват:** `ProjectionService` (FGS типа `mediaProjection`) получает кадр через `ScreenCapture`
   и передаёт его в Activity через process-local `CaptureResultHolder` с сессионной очисткой.
+- **Выделение:** `SelectionView` вписывает кадр, затемняет только внешнюю область и нормализует
+  прямоугольник при протяжке в любом направлении; кнопка «Скопировать» — заглушка.
+
 
 
 
@@ -189,7 +193,7 @@ VirtualDisplay, foreground service и уведомление.
 ## 5. Этапы реализации
 
 Каждый шаг заканчивается проверкой; без неё шаг не считается выполненным.
-Текущий статус: **шаги 1–4 выполнены**, шаги 5–10 не начаты.
+Текущий статус: **шаги 1–5 выполнены**, шаги 6–10 не начаты.
 
 **Шаг 1. Каркас проекта. — ВЫПОЛНЕН (этап 4).**
 Gradle-файлы, wrapper, `app/build.gradle.kts`, `MainActivity` и тема.
@@ -219,16 +223,16 @@ label «Screen Graber». Проверка на телефоне (появлен�
 ожидание первого кадра; попадание анимации диалога в кадр проверяется на устройстве.
 Проверка: получен кадр 1:1, отображается в `CaptureActivity` с размерами. Требуется проверка на Mi 9T.
 
-**Шаг 5. Экран выделения.**
-`SelectionView`: кадр как фон, затемнение вне рамки, надпись «Выделите область», протяжка
-«угол → угол», затем 4 угла + 4 стороны, минимальный размер 24 dp, ограничение границами экрана,
-перенос рамки, кнопки «Распознать» и «Отмена».
-Проверка: рамка совпадает с содержимым под ней (отклонение ≤1 px), маркеры работают.
+**Шаг 5. Экран выделения. — ВЫПОЛНЕН (этап 8; на устройстве не проверен).**
+`SelectionView`: кадр как фон с сохранением пропорций, затемнение вне рамки (`#78000000`),
+надпись «Выделите область», протяжка «угол → угол» в любом направлении, ограничение границами
+изображения, минимальный размер 16 dp, повторная протяжка заменяет выделение, кнопка
+«Скопировать» (заглушка). Ручки изменения размера и отдельное подтверждение не добавлялись.
+Проверка: сборка и `aapt`; визуальная проверка — на устройстве.
 
-**Шаг 6. Обрезка и ориентация.**
-`Bitmap.createBitmap(source, x, y, w, h)`, фиксация ориентации на сеанс, освобождение исходного
-Bitmap после обрезки.
-Проверка: в OCR уходит ровно выделенная область.
+**Шаг 6. Обрезка и ориентация. — ЧАСТИЧНО.**
+Ориентация фиксируется на сеанс (`SCREEN_ORIENTATION_LOCKED`, `configChanges`). Обрезка Bitmap
+по `selectedBitmapRect()` и передача в OCR появятся на следующем этапе; кнопка пока заглушка.
 
 **Шаг 7. Модели и OCR.**
 `TessdataInstaller` (копирование ~29,3 МБ в `filesDir/tessdata`, идемпотентно, в фоне с индикатором),
@@ -381,20 +385,18 @@ JVM-тесты геометрии, `assembleDebug`/`assembleRelease`, прого
 
 ## 11. Сборка и проверка
 
-**Результат 2026-10-28 (версия 0.3.0):** `./gradlew --no-daemon :app:assembleDebug` — BUILD SUCCESSFUL
-(33 задачи, 10 с). `aapt`: `versionCode=3`, `versionName=0.3.0`, label **Screen Graber**, package
-`com.screengraber.text`, разрешение только `FOREGROUND_SERVICE`, сервис
-`ProjectionService` с `foregroundServiceType=mediaProjection`, `CaptureActivity` не экспортирована,
-плитка без изменений. Лог — `docs/build-logs/assembleDebug-2026-10-28-capture.txt`.
+**Результат 2026-10-28 (версия 0.4.0):** `./gradlew --no-daemon :app:assembleDebug` — BUILD SUCCESSFUL
+(33 задачи, 13 с), без предупреждений компилятора. `aapt`: `versionCode=4`, `versionName=0.4.0`,
+label **Screen Graber**, package `com.screengraber.text`, разрешение только `FOREGROUND_SERVICE`.
+Лог — `docs/build-logs/assembleDebug-2026-10-28-selection.txt`.
 
-`./gradlew :app:lintDebug` завершается **FAILED** ровно по одной ошибке
-`ExpiredTargetSdkVersion` («Google Play requires target API 33+») при `targetSdk = 30`.
-Это осознанное решение для Android 11 / sideload, не ошибка кода; SDK не повышался.
-Остальные замечания — 2 предупреждения: deprecated `startActivityAndCollapse(Intent)` (используется
-только до API 33, для 34+ есть ветка с `PendingIntent`) и `ChromeOsAbiSupport` (сборка только arm64).
+`./gradlew :app:lintDebug` — **FAILED** ровно по одной ошибке `ExpiredTargetSdkVersion`
+(«Google Play requires target API 33+») при `targetSdk = 30`; это осознанное решение для Android 11
+и sideload, не ошибка кода. Остальные замечания — 2 прежних предупреждения
+(`startActivityAndCollapse(Intent)` только до API 33; arm64-only). Новых замечаний нет.
 
 GitHub Actions: workflow `.github/workflows/build-debug.yml` **есть в GitHub**. Запуск
-`40569147336` успешен на `7716d8e` (0.1.0). Для 0.3.0 CI не запускался: dispatch из Cline запрещён
+`40569147336` успешен на `7716d8e` (0.1.0). Для 0.4.0 CI не запускался: dispatch из Cline запрещён
 (HTTP 403), нужен ручной запуск. Проверка на телефоне не выполнялась. CI-APK и локальная сборка
 подписаны разными debug-ключами — установка «поверх» невозможна, допускается разовое удаление.
 

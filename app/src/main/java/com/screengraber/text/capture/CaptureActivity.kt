@@ -12,24 +12,28 @@ import android.os.Looper
 import android.os.ResultReceiver
 import android.view.View
 import android.widget.Button
-import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import com.screengraber.text.R
+import com.screengraber.text.ui.SelectionView
 
 /**
- * Один сеанс захвата экрана.
+ * Один сеанс захвата экрана с выбором прямоугольной области.
  *
- * Окно прозрачно до получения кадра, поэтому сам экран не попадает в снимок.
- * После получения кадра показываются изображение, его размеры и кнопка закрытия.
+ * Окно прозрачно до получения кадра, поэтому сама Activity не попадает в снимок.
+ * После кадра показывается [SelectionView]: затемнение вне выделения, надпись
+ * «Выделите область» и кнопка «Скопировать» после выделения.
  *
- * Выделение области и OCR на этом этапе не реализованы.
+ * OCR на этом этапе не реализован: кнопка показывает только заглушку.
  */
 class CaptureActivity : Activity() {
 
     private lateinit var root: View
+    private lateinit var selectionView: SelectionView
+    private lateinit var errorPanel: View
     private lateinit var status: TextView
-    private lateinit var preview: ImageView
     private lateinit var closeButton: Button
+    private lateinit var copyButton: Button
 
     private var frame: Bitmap? = null
     private var resultShown = false
@@ -75,20 +79,27 @@ class CaptureActivity : Activity() {
 
         setContentView(R.layout.activity_capture)
         root = findViewById(R.id.capture_root)
+        selectionView = findViewById(R.id.capture_selection)
+        errorPanel = findViewById(R.id.capture_error_panel)
         status = findViewById(R.id.capture_status)
-        preview = findViewById(R.id.capture_preview)
         closeButton = findViewById(R.id.capture_close)
+        copyButton = findViewById(R.id.capture_copy)
 
-        // До получения кадра окно должно быть полностью прозрачным.
         root.visibility = View.INVISIBLE
         closeButton.setOnClickListener { finishSession() }
+        copyButton.setOnClickListener {
+            // OCR появится на следующем этапе; фиктивного копирования нет.
+            Toast.makeText(this, R.string.selection_copy_stub, Toast.LENGTH_SHORT).show()
+        }
+        selectionView.onSelectionChanged = { hasSelection ->
+            copyButton.visibility = if (hasSelection) View.VISIBLE else View.GONE
+        }
 
         CaptureResultHolder.begin()
 
         if (savedInstanceState == null) {
             requestScreenCapture()
         } else {
-            // Пересоздание Activity во время сеанса не поддерживается: чисто закрываемся.
             finishSession()
         }
     }
@@ -122,17 +133,26 @@ class CaptureActivity : Activity() {
         }
     }
 
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+    override fun onBackPressed() {
+        finishSession()
+    }
+
     private fun showFrame(bitmap: Bitmap) {
         frame?.recycle()
         frame = bitmap
-        preview.setImageBitmap(bitmap)
-        status.text = getString(R.string.capture_frame_size, bitmap.width, bitmap.height)
+        selectionView.setBitmap(bitmap)
+        copyButton.visibility = View.GONE
+        errorPanel.visibility = View.GONE
         root.setBackgroundColor(Color.BLACK)
         root.visibility = View.VISIBLE
     }
 
     private fun showError(message: String) {
-        preview.visibility = View.GONE
+        selectionView.setBitmap(null)
+        selectionView.visibility = View.GONE
+        errorPanel.visibility = View.VISIBLE
+        copyButton.visibility = View.GONE
         status.text = message
         root.setBackgroundColor(Color.BLACK)
         root.visibility = View.VISIBLE
@@ -140,6 +160,7 @@ class CaptureActivity : Activity() {
 
     private fun finishSession() {
         mainHandler.removeCallbacks(watchdog)
+        selectionView.setBitmap(null)
         CaptureResultHolder.end()
         stopService(Intent(this, ProjectionService::class.java))
         finishAndRemoveTask()
@@ -147,6 +168,7 @@ class CaptureActivity : Activity() {
 
     override fun onDestroy() {
         mainHandler.removeCallbacks(watchdog)
+        selectionView.setBitmap(null)
         CaptureResultHolder.end()
         frame?.recycle()
         frame = null

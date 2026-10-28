@@ -12,8 +12,8 @@ android {
         applicationId = "com.screengraber.text"
         minSdk = 29
         targetSdk = 30
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
 
         // Целевое устройство — Xiaomi Mi 9T (ARM64). Фильтр также уменьшит APK,
         // когда появятся нативные библиотеки Tesseract.
