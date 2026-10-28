@@ -3,7 +3,7 @@
 **Дата последнего обновления:** 2026-10-28 04:25 UTC
 **Текущий этап:** Этап 6 — переименование в «Screen Graber» и плитка Quick Settings (реализовано и собрано локально; **на телефоне не проверено**)
 **Статус кода:** плитка открывает `MainActivity`; захват экрана, MediaProjection, выделение и OCR **не реализованы**
-**Сборка/тесты:** локально `assembleDebug` — BUILD SUCCESSFUL (лог: `docs/build-logs/assembleDebug-2026-10-28-tile.txt`). Предыдущий CI-запуск `40569147336` — success на коммите `7716d8e`. Автотестов нет. На физическом устройстве не проверялось
+**Сборка/тесты:** локально `assembleDebug` — BUILD SUCCESSFUL (лог: `docs/build-logs/assembleDebug-2026-10-28-tile.txt`). CI для 0.2.0 **не запускался**: dispatch из Cline запрещён (HTTP 403). Предыдущий CI-запуск `40569147336` — success на коммите `7716d8e` (версия 0.1.0). Автотестов нет. На физическом устройстве не проверялось
 
 > Этот документ фиксирует **фактическое** состояние. Он не заменяет Git-коммиты и не доказывает,
 > что приложение собирается или работает. Всё, что не подтверждено доказательством (лог, отчёт,
@@ -130,7 +130,7 @@ MediaProjection, выделение области, OCR и буфер обмен
 | Ветка | `main`, история линейная, без force push |
 | Коммиты | `bab14d2` (docs) → `1b31ed4` (каркас) → `e6a3baf` (docs/CI) → ручные правки workflow пользователем → `7716d8e` (актуальный `origin/main`) |
 | Синхронизация | локальная копия обновлена fast-forward до `7716d8e`; устаревший untracked `.github/workflows/build-debug.yml` удалён (рабочая версия осталась на GitHub) |
-| Коммит этапа 6 | создаётся после локальной проверки; SHA — в отчёте и `git log -1` |
+| Коммит этапа 6 | `7ae2f882b49557f0f3bc7b6717a4644f6923547a` — `feat: rename to Screen Graber and add quick settings tile`; отправлен в `origin/main` |
 | Remote | `origin` → `https://github.com/VampireHunterA/screen-graber.git` (не менялся) |
 | CI | workflow `Build debug APK` существует на GitHub; запуск `40569147336` — success на `7716d8e` |
 | Действия с Git | ветка не менялась и не создавалась, force push не выполнялся, remote и Git-конфигурация не менялись |
@@ -208,9 +208,12 @@ MediaProjection, выделение области, OCR и буфер обмен
 | 2026-10-28 | Локальная ветка синхронизирована fast-forward до `7716d8e`; удалена устаревшая untracked-копия workflow | `git pull --ff-only` |
 | 2026-10-28 | Переименование в Screen Graber, версия 0.2.0, добавлены `CaptureTileService` и `ic_tile.xml` | файлы проекта |
 | 2026-10-28 | Локальная сборка 0.2.0 — BUILD SUCCESSFUL; `aapt`: label Screen Graber, versionCode 2, сервис с `BIND_QUICK_SETTINGS_TILE`, разрешений нет | `docs/build-logs/assembleDebug-2026-10-28-tile.txt`, `aapt dump` |
+| 2026-10-28 | Коммит `7ae2f88` отправлен в `origin/main`; локальный и удалённый SHA совпадают | `git push`, `git ls-remote` |
+| 2026-10-28 | Попытка запустить CI для 0.2.0 отклонена GitHub: HTTP 403 (у App нет права Actions write) | вывод `gh workflow run` |
 
-События, которых не было: установка версии 0.2.0 на Xiaomi Mi 9T, проверка плитки на устройстве,
-запуск автотестов, реализация захвата экрана, MediaProjection, выделения и OCR.
+События, которых не было: CI-запуск версии 0.2.0, установка версии 0.2.0 на Xiaomi Mi 9T,
+проверка плитки на устройстве, запуск автотестов, реализация захвата экрана, MediaProjection,
+выделения и OCR.
 
 ## 11. Локальный toolchain (вне репозитория)
 
@@ -262,6 +265,9 @@ MediaProjection, выделение области, OCR и буфер обмен
 | Run | Коммит | Результат | Артефакты |
 |---|---|---|---|
 | [40569147336](https://github.com/VampireHunterA/screen-graber/actions/runs/40569147336) | `7716d8e` | success, 1m37s | `screen-graber-debug-apk` (748 688 Б), `screen-graber-build-log` (1 019 Б) |
+| — | `7ae2f88` (0.2.0) | **не запускался**: `gh workflow run` вернул HTTP 403 (у GitHub App нет права Actions write) | — |
+
+Для версии 0.2.0 запуск нужно выполнить вручную: **Actions → Build debug APK → Run workflow → main**.
 
 Более ранние запуски (`40564119940` и три push-запуска) завершились ошибкой при ручной настройке
 workflow; они не относятся к текущему коду. CI-сборка **не заменяет** установку и проверку на
