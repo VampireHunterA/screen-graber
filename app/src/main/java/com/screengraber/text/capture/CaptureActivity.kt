@@ -6,11 +6,14 @@ import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.ResultReceiver
 import android.view.View
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -72,6 +75,7 @@ class CaptureActivity : Activity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Timing.start()
         super.onCreate(savedInstanceState)
 
         // Ориентация фиксируется на сеанс, чтобы координаты кадра не «поехали».
@@ -114,6 +118,8 @@ class CaptureActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != REQUEST_CAPTURE) return
 
+        Timing.mark("consent_result", "result=$resultCode")
+
         if (resultCode != RESULT_OK || data == null) {
             finishSession()
             return
@@ -141,11 +147,21 @@ class CaptureActivity : Activity() {
     private fun showFrame(bitmap: Bitmap) {
         frame?.recycle()
         frame = bitmap
+        enterFullscreen()
         selectionView.setBitmap(bitmap)
         copyButton.visibility = View.GONE
         errorPanel.visibility = View.GONE
         root.setBackgroundColor(Color.BLACK)
         root.visibility = View.VISIBLE
+
+        val bitmapWidth = bitmap.width
+        val bitmapHeight = bitmap.height
+        selectionView.post {
+            Timing.mark(
+                "frame_shown",
+                "bitmap=${bitmapWidth}x$bitmapHeight view=${selectionView.width}x${selectionView.height}"
+            )
+        }
     }
 
     private fun showError(message: String) {
@@ -158,7 +174,50 @@ class CaptureActivity : Activity() {
         root.visibility = View.VISIBLE
     }
 
+    /**
+     * Кадр — это полный снимок дисплея, включая системные панели. Чтобы показать его
+     * 1:1 без уменьшения и без чёрных полей, скрываем панели и растягиваем окно
+     * на весь экран. Вызывается только после получения кадра.
+     */
+    @Suppress("DEPRECATION")
+    private fun enterFullscreen() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
+            window.insetsController?.let { controller ->
+                controller.hide(
+                    WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
+                )
+                controller.systemBarsBehavior =
+                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                )
+        }
+        Timing.mark("fullscreen_entered")
+    }
+
+    @Suppress("DEPRECATION")
+    private fun exitFullscreen() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(true)
+            window.insetsController?.show(WindowInsets.Type.systemBars())
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+        }
+    }
+
     private fun finishSession() {
+        Timing.mark("session_finish")
+        exitFullscreen()
         mainHandler.removeCallbacks(watchdog)
         selectionView.setBitmap(null)
         CaptureResultHolder.end()
@@ -167,6 +226,8 @@ class CaptureActivity : Activity() {
     }
 
     override fun onDestroy() {
+        Timing.mark("session_destroyed")
+        exitFullscreen()
         mainHandler.removeCallbacks(watchdog)
         selectionView.setBitmap(null)
         CaptureResultHolder.end()

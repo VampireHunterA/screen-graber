@@ -10,6 +10,7 @@ import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import android.util.DisplayMetrics
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -31,6 +32,9 @@ class ScreenCapture(
         val width = metrics.widthPixels
         val height = metrics.heightPixels
         val densityDpi = context.resources.displayMetrics.densityDpi
+        val startedAt = SystemClock.elapsedRealtime()
+
+        Timing.mark("capture_start", "requested=${width}x$height densityDpi=$densityDpi")
 
         val thread = HandlerThread("screen-capture").apply { start() }
         val handler = Handler(thread.looper)
@@ -53,6 +57,7 @@ class ScreenCapture(
                 null,
                 handler
             )
+            Timing.mark("virtual_display_created", "size=${width}x$height")
 
             if (!frameAvailable.await(CAPTURE_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
                 throw TimeoutException("Screen frame was not produced in time")
@@ -61,7 +66,20 @@ class ScreenCapture(
             image = reader.acquireLatestImage()
                 ?: throw IllegalStateException("ImageReader returned no frame")
 
-            return imageToBitmap(image, width, height)
+            val ageMs = (System.nanoTime() - image.timestamp) / 1_000_000
+            Timing.mark(
+                "first_image",
+                "image=${image.width}x${image.height} imageTimestampNs=${image.timestamp} " +
+                    "ageMs=$ageMs waitMs=${SystemClock.elapsedRealtime() - startedAt}"
+            )
+
+            val bitmap = imageToBitmap(image, width, height)
+            Timing.mark(
+                "bitmap_ready",
+                "bitmap=${bitmap.width}x${bitmap.height} " +
+                    "totalMs=${SystemClock.elapsedRealtime() - startedAt}"
+            )
+            return bitmap
         } finally {
             image?.close()
             display?.release()

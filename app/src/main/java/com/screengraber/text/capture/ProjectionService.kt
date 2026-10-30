@@ -48,6 +48,7 @@ class ProjectionService : Service() {
             stopSelf(startId)
             return START_NOT_STICKY
         }
+        Timing.mark("service_start", "startId=$startId")
         if (!busy.compareAndSet(false, true)) {
             // Защита от повторного запуска во время активного сеанса.
             stopSelf(startId)
@@ -72,12 +73,14 @@ class ProjectionService : Service() {
             buildNotification(),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
         )
+        Timing.mark("foreground_started")
 
         executor.execute {
             try {
                 val manager = getSystemService(MediaProjectionManager::class.java)
                 val mediaProjection = manager.getMediaProjection(resultCode, resultData)
                 projection = mediaProjection
+                Timing.mark("projection_ready")
 
                 mediaProjection.registerCallback(object : MediaProjection.Callback() {
                     override fun onStop() {
@@ -86,13 +89,15 @@ class ProjectionService : Service() {
                 }, mainHandler)
 
                 val bitmap = ScreenCapture(this, mediaProjection).capture()
-                if (CaptureResultHolder.publish(bitmap)) {
+                val delivered = CaptureResultHolder.publish(bitmap)
+                if (delivered) {
                     receiver.send(RESULT_OK, null)
                 } else {
                     // Activity уже закрылась: кадр больше некому показывать.
                     bitmap.recycle()
                     receiver.send(RESULT_ERROR, null)
                 }
+                Timing.mark("bitmap_published", "delivered=$delivered")
             } catch (e: TimeoutException) {
                 receiver.send(RESULT_TIMEOUT, null)
             } catch (e: SecurityException) {

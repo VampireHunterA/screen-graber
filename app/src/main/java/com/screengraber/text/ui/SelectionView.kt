@@ -6,11 +6,14 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
+import android.os.SystemClock
 import android.util.AttributeSet
+import android.util.Log
 import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
 import com.screengraber.text.R
+import com.screengraber.text.capture.Timing
 import kotlin.math.max
 import kotlin.math.min
 
@@ -34,6 +37,7 @@ class SelectionView @JvmOverloads constructor(
     private var dragging = false
     private var anchorX = 0f
     private var anchorY = 0f
+    private var geometryLogged = false
 
     private val density = resources.displayMetrics.density
     private val minSelectionSize = 16f * density
@@ -63,6 +67,7 @@ class SelectionView @JvmOverloads constructor(
         bitmap = value
         hasSelection = false
         dragging = false
+        geometryLogged = false
         selection.setEmpty()
         updateImageRect()
         onSelectionChanged?.invoke(false)
@@ -101,6 +106,7 @@ class SelectionView @JvmOverloads constructor(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
+        geometryLogged = false
         updateImageRect()
     }
 
@@ -123,7 +129,28 @@ class SelectionView @JvmOverloads constructor(
         val source = bitmap ?: return
         if (imageRect.isEmpty) return
 
-        canvas.drawBitmap(source, null, imageRect, bitmapPaint)
+        val oneToOne = imageRect.left == 0f && imageRect.top == 0f &&
+            imageRect.width() == source.width.toFloat() &&
+            imageRect.height() == source.height.toFloat()
+
+        if (oneToOne) {
+            // Полный снимок дисплея: рисуем 1:1 без ресемплинга.
+            canvas.drawBitmap(source, 0f, 0f, null)
+        } else {
+            canvas.drawBitmap(source, null, imageRect, bitmapPaint)
+        }
+
+        if (!geometryLogged) {
+            geometryLogged = true
+            val scale = imageRect.width() / source.width
+            Log.d(
+                Timing.TAG,
+                "view_draw at=${SystemClock.elapsedRealtime()} " +
+                    "view=${width}x$height bitmap=${source.width}x${source.height} " +
+                    "imageRect=[${imageRect.left},${imageRect.top}," +
+                    "${imageRect.right},${imageRect.bottom}] scale=$scale oneToOne=$oneToOne"
+            )
+        }
 
         val showSelection = hasSelection || dragging
         if (showSelection && !selection.isEmpty) {
