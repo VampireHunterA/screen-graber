@@ -223,6 +223,8 @@ class CaptureActivity : Activity() {
         CaptureResultHolder.end()
         stopService(Intent(this, ProjectionService::class.java))
         finishAndRemoveTask()
+        @Suppress("DEPRECATION")
+        overridePendingTransition(0, 0)
     }
 
     override fun onDestroy() {
