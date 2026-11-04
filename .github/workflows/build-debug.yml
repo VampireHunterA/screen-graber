@@ -33,11 +33,33 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Prepare signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          umask 077
+          case "$RUNNER_TEMP" in
+            /*) ;;
+            *) echo "RUNNER_TEMP is not an absolute path" >&2; exit 1 ;;
+          esac
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/screen-graber.jks"
+          test -s "$RUNNER_TEMP/screen-graber.jks"
+          echo "Keystore prepared"
+
       - name: Build debug APK
         shell: bash
+        env:
+          SCREENGRABER_KEYSTORE: ${{ runner.temp }}/screen-graber.jks
+          SCREENGRABER_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SCREENGRABER_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          SCREENGRABER_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -o pipefail
           ./gradlew --no-daemon :app:assembleDebug 2>&1 | tee build-log.txt
+
+      - name: Remove signing keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/screen-graber.jks"
 
       - name: Upload build log
         if: always()
