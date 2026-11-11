@@ -115,6 +115,12 @@ android {
         }
     }
 
+    // BuildConfig нужен для BuildConfig.DEBUG (диагностика кадров только в debug).
+    // В AGP 8.x генерация BuildConfig по умолчанию отключена.
+    buildFeatures {
+        buildConfig = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
